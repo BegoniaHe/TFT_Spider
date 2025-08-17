@@ -90,15 +90,18 @@ class RawDataCollector:
         res = response.json()[0]
         # 返回案例，供参考，不使用
         res_example = {
-            'booleanPreVersion': False,
-            'arrVersionLimit': ['12.23'],
-            'stringName': '怪兽来袭',
-            'idSeason': 's8',
-            'url_chess_data': 'https://game.gtimg.cn/images/lol/act/img/tft/js/chess.js',
-            'url_race_data': 'https://game.gtimg.cn/images/lol/act/img/tft/js/race.js',
-            'url_job_data': 'https://game.gtimg.cn/images/lol/act/img/tft/js/job.js',
-            'url_equip_data': 'https://game.gtimg.cn/images/lol/act/img/tft/js/equip.js',
-            'url_hex_data': 'https://game.gtimg.cn/images/lol/act/img/tft/js/hex.js'
+            "booleanPreVersion": False,
+            "arrVersionLimit": [
+            "15.15"
+            ],
+            "stringName": "天下无双格斗大赛",
+            "idSeason": "s15",
+            "urlChessData": "https://game.gtimg.cn/images/lol/act/img/tft/js/chess.js",
+            "urlRaceData": "https://game.gtimg.cn/images/lol/act/img/tft/js/race.js",
+            "urlJobData": "https://game.gtimg.cn/images/lol/act/img/tft/js/job.js",
+            "urlEquipData": "https://game.gtimg.cn/images/lol/act/img/tft/js/equip.js",
+            "urlBuffData": "https://game.gtimg.cn/images/lol/act/img/tft/js/hex.js",
+            "urlPowerupData": "https://game.gtimg.cn/images/lol/act/img/tft/js/fruit.js"
         }
         # s8-怪兽来袭
         self.version_config["赛季名称"] = f"{res['idSeason']}-{res['stringName']}"
@@ -108,6 +111,7 @@ class RawDataCollector:
         self.version_config["url_job_data"] = res['urlJobData']
         self.version_config["url_equip_data"] = res['urlEquipData']
         self.version_config["url_hex_data"] = res['urlBuffData']
+        self.version_config["url_powerup_data"] = res["urlPowerupData"]
         # 通过job获取版本信息
         response = requests.get(self.version_config["url_race_data"], timeout=self.__time_out)
         # 13.5
@@ -118,7 +122,7 @@ class RawDataCollector:
     def __collect_raw_data(self) -> None:
         """收集raw_data，并保存到 TFT_RAW_DATA_FILE 。
         """
-        data_list = ['chess', 'race', 'job', 'equip']
+        data_list = ['chess', 'race', 'job', 'equip', 'powerup']
         for data_kind in data_list:
             url = self.version_config[f'url_{data_kind}_data']
             response = requests.get(url, timeout=self.__time_out)
@@ -156,6 +160,7 @@ class RawDataCollector:
         for chess in track(chess_list, description="正在爬取棋子图片"):
             img_name = f"{TFT_IMG_FILE}/chess/{chess['TFTID']}-{chess['title']}-{chess['displayName']}.jpg"
             img_name = os.path.join(ROOT_DIR, img_name)
+            os.makedirs(os.path.dirname(img_name), exist_ok=True)
             version_id = self.version_config['赛季名称'].split("-")[0] # s12
             img_url = f"https://game.gtimg.cn/images/lol/tftstore/{version_id}/624x318/{chess['TFTID']}.jpg"
             # print(img_url)
@@ -172,6 +177,7 @@ class RawDataCollector:
             img_name = f"{chess['TFTID']}-{chess['title']}-{chess['displayName']}-{skill_name}.jpg"
             img_name = f"{TFT_IMG_FILE}/skill/{img_name}"
             img_name = os.path.join(ROOT_DIR, img_name)
+            os.makedirs(os.path.dirname(img_name), exist_ok=True)
             img_url = chess['skillImage']
             try:
                 self.__download_image(img_name, img_url)
@@ -187,6 +193,7 @@ class RawDataCollector:
             hex_info = hex_list[hex_info]
             img_name = f"{TFT_IMG_FILE}/hex/{hex_info['hexId']}-{hex_info['name']}.jpg"
             img_name = os.path.join(ROOT_DIR, img_name)
+            os.makedirs(os.path.dirname(img_name), exist_ok=True)
             try:
                 self.__download_image(img_name, hex_info['imgUrl'])
             except Exception as e:
@@ -200,17 +207,35 @@ class RawDataCollector:
             img_name = f"{TFT_IMG_FILE}/equip/{equip['TFTID']}-{equip['name'].replace('/', '')}.jpg"
             img_name = img_name.replace(" ", "").replace("//", "")
             img_name = os.path.join(ROOT_DIR, img_name)
+            os.makedirs(os.path.dirname(img_name), exist_ok=True)
             try:
                 self.__download_image(img_name, equip['imagePath'])
             except Exception as e:
                 print(f"{equip['TFTID']}-{equip['name'].replace('/', '')} 图片下载失败。")
                 print(f"url: {equip['imagePath']}")
+                
+    def download_powerup_imgs(self) -> None:
+        powerup_dict = self.raw_data['powerup']
+        for powerup_key in track(powerup_dict, description="正在爬取果实（powerup）图片"):
+            powerup= powerup_dict[powerup_key]
+            # print(powerup)
+            # powerup = powerup[powerup]
+            img_name = f"{TFT_IMG_FILE}/powerup/{powerup['id']}-{powerup['title'].replace('/', '')}.jpg"
+            img_name = img_name.replace(" ", "").replace("//", "")
+            img_name = os.path.join(ROOT_DIR, img_name)
+            os.makedirs(os.path.dirname(img_name), exist_ok=True)
+            try:
+                self.__download_image(img_name, powerup['imageUrl'])
+            except Exception as e:
+                print(f"{powerup['id']}-{powerup['title'].replace('/', '')} 图片下载失败。")
+                print(f"url: {powerup['imageUrl']}")
 
     def download_all_imgs(self) -> None:
         self.download_chess_imgs()
         self.download_skill_imgs()
         self.download_hex_imgs()
         self.download_equipment_imgs()
+        self.download_powerup_imgs()
 
 
 class TFTDataProcessor:
@@ -389,7 +414,7 @@ if __name__ == '__main__':
 
     # 下载图片
     print("================ 下载棋子、技能、海克斯、装备图片 ================")
-    print("\033[31m如果图片有错，比如版本不对，请将所有图片删除重新下载（只删除图片，别删除文件夹）。\033[0m")
+    print("\033[31m如果图片有错，比如版本不对，请将所有图片删除重新下载。\033[0m")
     rdc.download_all_imgs()
     print(f"\033[32m图片下载完成，保存到：{TFT_IMG_FILE}\033[0m")
     print()
