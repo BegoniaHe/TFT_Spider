@@ -7,7 +7,7 @@ import requests
 from rich.progress import track
 
 from .config import TFT_IMG_FILE, TFT_RAW_DATA_FILE
-from .utils import save_json
+from .utils import is_valid_chess, save_json
 
 
 class RawDataCollector:
@@ -17,7 +17,7 @@ class RawDataCollector:
     _VERSION_URL = "https://lol.qq.com/zmtftzone/public-lib/versionconfig.json"
 
     def __init__(self) -> None:
-        # 每个 requests 请求超时时间（秒）
+        # 每个 requests 请求超时时间
         self._timeout: int = 5
         self.version_config: dict = {
             "赛季名称": "",
@@ -40,9 +40,7 @@ class RawDataCollector:
         self._get_version_info()
         self._collect_raw_data()
 
-    # ------------------------------------------------------------------
     # 版本信息
-    # ------------------------------------------------------------------
 
     def _get_version_info(self) -> None:
         """从官网获取当前赛季及各数据接口 URL。"""
@@ -61,9 +59,7 @@ class RawDataCollector:
         race_resp = requests.get(self.version_config["url_race_data"], timeout=self._timeout)
         self.version_config["版本信息"] = race_resp.json()["version"]
 
-    # ------------------------------------------------------------------
     # 数据采集
-    # ------------------------------------------------------------------
 
     def _collect_raw_data(self) -> None:
         """采集所有分类的原始数据并保存到 JSON 文件。"""
@@ -91,9 +87,7 @@ class RawDataCollector:
         """将采集的原始数据保存到磁盘。"""
         save_json(self.raw_data, TFT_RAW_DATA_FILE)
 
-    # ------------------------------------------------------------------
     # 图片下载
-    # ------------------------------------------------------------------
 
     def _download_image(self, img_path: str, img_url: str) -> None:
         headers = {
@@ -114,7 +108,8 @@ class RawDataCollector:
 
     def download_chess_imgs(self) -> None:
         version_id = self.version_config["赛季名称"].split("-")[0]
-        for chess in track(self.raw_data["chess"], description="正在爬取棋子图片"):
+        chess_list = [c for c in self.raw_data["chess"] if is_valid_chess(c)]
+        for chess in track(chess_list, description="正在爬取棋子图片"):
             img_path = os.path.join(
                 TFT_IMG_FILE,
                 "chess",
@@ -132,7 +127,8 @@ class RawDataCollector:
                 print(f"chess - url: {img_url}")
 
     def download_skill_imgs(self) -> None:
-        for chess in track(self.raw_data["chess"], description="正在爬取技能图片"):
+        chess_list = [c for c in self.raw_data["chess"] if is_valid_chess(c)]
+        for chess in track(chess_list, description="正在爬取技能图片"):
             skill_name = chess["skillName"].replace("/", "-").replace("：", "-")
             img_path = os.path.join(
                 TFT_IMG_FILE,

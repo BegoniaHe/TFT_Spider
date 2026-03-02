@@ -1,7 +1,7 @@
 """数据处理器：对原始数据进行加工，并输出 JSON / Python Singleton 文件。"""
 
 from .config import TFT_PROCESSED_DATA_FILE, TFT_PY_CLASS_FILE, TFT_RAW_DATA_FILE
-from .utils import load_json, save_json
+from .utils import is_valid_chess, load_json, save_json
 
 # OCR 无法识别的字符替换表
 _OCR_REPLACE: dict[str, str] = {
@@ -25,9 +25,12 @@ class TFTDataProcessor:
         }
         self._process_data()
 
-    # ------------------------------------------------------------------
     # 内部处理步骤
-    # ------------------------------------------------------------------
+
+    @property
+    def _valid_chess(self) -> list[dict]:
+        """过滤后的真实棋子列表（费用 1-5 且 isShow != '0'）。"""
+        return [c for c in self.raw_data["chess"] if is_valid_chess(c)]
 
     def _match_job_chess(self) -> None:
         res: dict[str, list[str]] = {}
@@ -35,7 +38,7 @@ class TFTDataProcessor:
             job_id, job_name = job["jobId"], job["name"]
             res[job_name] = [
                 chess["displayName"]
-                for chess in self.raw_data["chess"]
+                for chess in self._valid_chess
                 if job_id in chess["jobIds"].split(",")
             ]
         self.processed_data["job_chess"] = res
@@ -46,14 +49,14 @@ class TFTDataProcessor:
             race_id, race_name = race["raceId"], race["name"]
             res[race_name] = [
                 chess["displayName"]
-                for chess in self.raw_data["chess"]
+                for chess in self._valid_chess
                 if race_id in chess["raceIds"].split(",")
             ]
         self.processed_data["race_chess"] = res
 
     def _match_price_chess(self) -> None:
         res: dict[str, list[str]] = {str(p): [] for p in range(1, 6)}
-        for chess in self.raw_data["chess"]:
+        for chess in self._valid_chess:
             price = chess["price"]
             if price in res:
                 res[price].append(chess["displayName"])
@@ -62,14 +65,14 @@ class TFTDataProcessor:
     def _parse_all_strings(self) -> None:
         """拼接所有棋子/种族/职业名称字符串，方便 OCR 后模糊匹配。"""
         self.processed_data["all_chess_name"] = "-".join(
-            c["displayName"] for c in self.raw_data["chess"]
+            c["displayName"] for c in self._valid_chess
         )
         self.processed_data["all_race_name"] = "-".join(r["name"] for r in self.raw_data["race"])
         self.processed_data["all_job_name"] = "-".join(j["name"] for j in self.raw_data["job"])
 
     def _parse_chess_name_info(self) -> None:
         self.processed_data["chess_name_info"] = {
-            info["displayName"]: info for info in self.raw_data["chess"]
+            info["displayName"]: info for info in self._valid_chess
         }
 
     def _process_data(self) -> None:
@@ -80,9 +83,7 @@ class TFTDataProcessor:
         self._parse_chess_name_info()
         save_json(self.processed_data, TFT_PROCESSED_DATA_FILE)
 
-    # ------------------------------------------------------------------
     # 公开接口
-    # ------------------------------------------------------------------
 
     def save_tft_processed_data(self) -> None:
         """将处理后的数据保存到磁盘。"""
