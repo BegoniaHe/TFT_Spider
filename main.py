@@ -111,7 +111,7 @@ class RawDataCollector:
         self.version_config["url_job_data"] = res['urlJobData']
         self.version_config["url_equip_data"] = res['urlEquipData']
         self.version_config["url_hex_data"] = res['urlBuffData']
-        self.version_config["url_powerup_data"] = res["urlPowerupData"]
+        self.version_config["url_powerup_data"] = res.get("urlPowerupData", None)
         # 通过job获取版本信息
         response = requests.get(self.version_config["url_race_data"], timeout=self.__time_out)
         # 13.5
@@ -122,11 +122,18 @@ class RawDataCollector:
     def __collect_raw_data(self) -> None:
         """收集raw_data，并保存到 TFT_RAW_DATA_FILE 。
         """
-        data_list = ['chess', 'race', 'job', 'equip', 'powerup']
+        data_list = ['chess', 'race', 'job', 'equip']
         for data_kind in data_list:
             url = self.version_config[f'url_{data_kind}_data']
             response = requests.get(url, timeout=self.__time_out)
             self.raw_data[data_kind] = response.json()['data']
+        # powerup 数据在部分赛季不存在
+        powerup_url = self.version_config.get('url_powerup_data')
+        if powerup_url:
+            response = requests.get(powerup_url, timeout=self.__time_out)
+            self.raw_data['powerup'] = response.json()['data']
+        else:
+            self.raw_data['powerup'] = {}
         # 'hex'特殊处理
         response = requests.get(self.version_config['url_hex_data'], timeout=self.__time_out)
         hex_res = response.json()
@@ -215,7 +222,10 @@ class RawDataCollector:
                 print(f"url: {equip['imagePath']}")
                 
     def download_powerup_imgs(self) -> None:
-        powerup_dict = self.raw_data['powerup']
+        powerup_dict = self.raw_data.get('powerup', {})
+        if not powerup_dict:
+            print("当前赛季无 powerup 数据，跳过。")
+            return
         for powerup_key in track(powerup_dict, description="正在爬取果实（powerup）图片"):
             powerup= powerup_dict[powerup_key]
             # print(powerup)

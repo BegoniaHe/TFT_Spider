@@ -1,0 +1,10 @@
+[project]
+name = "tft-spider"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.9"
+dependencies = [
+    "pillow==10.3.0",
+    "requests==2.28.2",
+    "rich==13.3.2",
+]
